@@ -9,18 +9,21 @@ import random
 from skimage.measure import label, regionprops
 from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
+from avoiding_map import otsu
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 dossier_segmentation = "/home/jdrochmans/data/juliette/seg"
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
 likelihood_map = nib.load(likelihood_map_path).get_fdata()
-label_map = [os.path.join(dossier_segmentation, f) for f in os.listdir(dossier_segmentation) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_segmentation, f)) ]
+#label_map = [os.path.join(dossier_segmentation, f) for f in os.listdir(dossier_segmentation) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_segmentation, f)) ]
 dossier_reg_MNI_label_map = ""
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
 path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir/")
 dossier_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
 dossier_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
 dossier_registered_image = "/home/jdrochmans/data/juliette/register_image"
-
+dossier_image = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/imagesTr"
+dossier_image_MNI = "/home/jdrochmans/data/juliette/training_label_maps"
+label_map = [os.path.join(dossier_image_MNI, f) for f in os.listdir(dossier_image_MNI) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_image_MNI, f)) ]
 def create_points(likelihood_map,path_dir, min_distance=20):
     points = np.argwhere((likelihood_map > 0.55))
     selected_points = []
@@ -136,43 +139,45 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
     
     #dictionnaire de lésions dans l'espace MNI => registrer les label _map 
     path_in_name = os.path.basename(label_map) #check comment se nomme les label_map
-    name = path_in_name.split("_")[0]
+    name = path_in_name.split("_")[2]
     template_nib_T1 = nib.load(template_p_T1)
     
     #points, dict_points_clés = shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1)
     
     points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-    forward_transforms = sorted([
-    os.path.join(reg_dir, f)
-    for f in os.listdir(reg_dir)
-    if(f.startswith(f'{name}'))
-    if (
-        re.search(r"_0GenericAffine\.mat$", f) or
-        re.search(r"_1Warp\.nii(\.gz)?$", f)
-    )
-])
+#     forward_transforms = sorted([
+#     os.path.join(reg_dir, f)
+#     for f in os.listdir(reg_dir)
+#     if(f.startswith(f'{name}'))
+#     if (
+#         re.search(r"_0GenericAffine\.mat$", f) or
+#         re.search(r"_1Warp\.nii(\.gz)?$", f)
+#     )
+# ])
     
-    backward_transforms = sorted(
-    [os.path.join(reg_dir, f) 
-    for f in os.listdir(reg_dir) 
-    if(f.startswith(f'{name}'))
-    if (
-        re.search(r"_0GenericAffine\.mat$", f) or
-        re.search(r"_1InverseWarp\.nii(\.gz)?$", f)
-    )]
-    ) 
+#     backward_transforms = sorted(
+#     [os.path.join(reg_dir, f) 
+#     for f in os.listdir(reg_dir) 
+#     if(f.startswith(f'{name}'))
+#     if (
+#         re.search(r"_0GenericAffine\.mat$", f) or
+#         re.search(r"_1InverseWarp\.nii(\.gz)?$", f)
+#     )]
+#     ) 
     
-    output =  os.path.join(dossier_reg_MNI_label_map, f'image_{name}.nii.gz')
-    cmd = f"antsApplyTransforms -i {label_map} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
-    subprocess.Popen(cmd, shell = True).wait()
-    aligned_image = ants.image_read(output)
-    image_p = output
-    
-    
+#     output =  os.path.join(dossier_reg_MNI_label_map, f'image_{name}.nii.gz')
+#     cmd = f"antsApplyTransforms -i {label_map} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
+#     subprocess.Popen(cmd, shell = True).wait()
+    aligned_image = ants.image_read(label_map)
+    image_p = label_map
+    template = nib.load(image_p)
+    # image_files = [os.path.join(dossier_registered_image, f) for f in os.listdir(dossier_registered_image) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_registered_image, f)) ] 
+    # image_files_filtered = [f for f in image_files if name in os.path.basename(f)]
+    # otsu_mask = otsu(image_files_filtered[0])
     label_MNI = nib.load(image_p)
     dim_x,dim_y,dim_z = label_MNI.shape
-    label = 86
-    label2 = 86
+    label = 57
+    label2 = 57
     label_MNI = label_MNI.get_fdata()
     label_MNI_lesion_sem = label_MNI.copy()
     mask_synth_lesions = np.zeros((label_MNI.shape), dtype = np.float32)
@@ -181,10 +186,13 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
         bool = False
         max_attempt = 200
         attempt = 0
-        cortex_mask = np.isin(label_MNI, [42, 3, 8, 47]).astype(np.uint8)
-        
-        ventricule_mask = np.isin(label_MNI, [4,14,15,43,72]).astype(np.uint8)
-        lesion_mask = np.isin(label_MNI, 77).astype(np.uint8)
+        cortex_mask = np.isin(label_MNI, [3,8,42,47]).astype(np.uint8)
+        brain_mask = np.isin(label_MNI, [507,511,515,516,514,502,509,24]).astype(np.uint8) 
+        ventricule_mask = np.isin(label_MNI, [4,5,14,15,43,44,10,49,28,60]).astype(np.uint8)
+        left_brain_mask = np.isin(label_MNI, [2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,26]).astype(np.uint8)
+        right_brain_mask = np.isin(label_MNI,[41,42,43,44,46,47,49,50,51,52,53,54,58,60]).astype(np.uint8)
+        lesion_mask = np.isin(label_MNI, [25,57]).astype(np.uint8)
+        #lesion_mask = np.isin(label_MNI, 77).astype(np.uint8)
         bool = False
         new_mask_lesion = np.zeros((label_MNI.shape), dtype = np.float32)
         while(bool == False and attempt < max_attempt):
@@ -195,14 +203,20 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                 good_cand = False
                 while good_cand == False :
                     flat_likelihood = likelihood_map.flatten()
-                    flat_likelihood_normalized = flat_likelihood / flat_likelihood.sum()
-                    voxel_index = np.random.choice(len(flat_likelihood_normalized), p=flat_likelihood_normalized)
+                    # #flat_likelihood_normalized = flat_likelihood / flat_likelihood.sum()
+                    # voxel_index = np.random.choice(len(flat_likelihood), p=flat_likelihood)
+                    # new_centroid = np.unravel_index(voxel_index, likelihood_map.shape)
+                    valid_indices = np.where(flat_likelihood > 0)[0]
+                    valid_probs = flat_likelihood[valid_indices]
+                    valid_probs /= valid_probs.sum()  # Normalize
+
+                    voxel_index = np.random.choice(valid_indices, p=valid_probs)
                     new_centroid = np.unravel_index(voxel_index, likelihood_map.shape)
-                    new_centroid = np.array(new_centroid).astype(int)
+                    #new_cent = random.choice(np.argwhere(likelihood_map > 0.7)).astype(int)
+                    #new_centroid = np.array(new_centroid).astype(int)
                     candidate = new_centroid
-                    
-                    #ventricule_mask[candidate[0], candidate[1], candidate[2]] == 0 and => test juste couper si dans ventricule ? 
-                    if(cortex_mask[candidate[0], candidate[1], candidate[2]] == 0 and lesion_mask[candidate[0], candidate[1], candidate[2]]== 0 and label_MNI[candidate[0], candidate[1], candidate[2]]!= 0 and mask_synth_lesions[candidate[0], candidate[1], candidate[2]] == 0):
+                    # and => test juste couper si dans ventricule ? 
+                    if(ventricule_mask[candidate[0], candidate[1], candidate[2]] == 0 and cortex_mask[candidate[0], candidate[1], candidate[2]] == 0 and label_MNI[candidate[0], candidate[1], candidate[2]]!= 0 and mask_synth_lesions[candidate[0], candidate[1], candidate[2]] == 0 and brain_mask[candidate[0], candidate[1], candidate[2]] == 0 and lesion_mask[candidate[0], candidate[1], candidate[2]]==0) :
                         good_cand = True
                         new_centroid = candidate
                 point_chosen = 0
@@ -254,9 +268,9 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                 stop_z = max(0,min(stop_z,dim_z)) 
                 
                 
-                tol_ratio_1 = np.sum(lesion_mask[start_x:stop_x, start_y:stop_y, start_z:stop_z] > 0) / ((stop_x-start_x) * (stop_y-start_y) * (stop_z-start_z))
+                # tol_ratio_1 = np.sum(lesion_mask[start_x:stop_x, start_y:stop_y, start_z:stop_z] > 0) / ((stop_x-start_x) * (stop_y-start_y) * (stop_z-start_z))
                 tol_ratio_2 = np.sum(mask_synth_lesions[start_x:stop_x, start_y:stop_y, start_z:stop_z] > 0) / ((stop_x-start_x) * (stop_y-start_y) * (stop_z-start_z))
-                if(start_x<stop_x and start_y < stop_y and start_z < stop_z and tol_ratio_1 == 0 and tol_ratio_2 < facteur_confluence): 
+                if(start_x<stop_x and start_y < stop_y and start_z < stop_z  and tol_ratio_2 < facteur_confluence): 
                     bool = True  
                 else :
                     attempt +=1
@@ -280,40 +294,83 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
             lesion_patch = volume[:target_shape[0], :target_shape[1], :target_shape[2]]
             
             new_mask_lesion[start_x:stop_x,start_y:stop_y,start_z:stop_z] = lesion_patch
-            new_mask_lesion[lesion_mask>0] = 0
-            new_mask_lesion[cortex_mask>0] = 0
+            # dil_mask = binary_dilation(new_mask_lesion, ball(2))
+            # if(np.sum(dil_mask[ventricule_mask>0]) > 0):
+            #     #new_mask_lesion = binary_dilation(new_mask_lesion,ball(3))
+            #     mult = np.random.normal(loc=1.4, scale=0.2)
+            #     mult = np.clip(mult, 1.0, 2.0)
+            #     print(f'multiplicateur utilisé: {mult}')
+            #     # Zoom sur le patch entier
+            #     new_mask_lesion = np.zeros((label_MNI.shape), dtype = np.float32)
+            #     vol2 = zoom(volume, zoom=mult, order=1)
+            #     vol2 = binary_dilation(vol2)
+            #     vol2 = binary_erosion(vol2)
+            #     volume_random_data_shape = vol2.shape
+            #     start_x = int(new_centroid[0] - volume_random_data_shape[0]/2)
+            #     start_y = int(new_centroid[1] - volume_random_data_shape[1]/2)
+            #     start_z = int(new_centroid[2] - volume_random_data_shape[2]/2)
+                
+            #     stop_x = int(new_centroid[0] + volume_random_data_shape[0]/2)
+            #     stop_y = int(new_centroid[1] + volume_random_data_shape[1]/2)
+            #     stop_z = int(new_centroid[2] + volume_random_data_shape[2]/2)
+                
+            #     start_x = max(0,min(dim_x,start_x))
+            #     start_y = max(0,min(start_y,dim_y))
+            #     start_z = max(0,min(start_z,dim_z))
+                
+            #     stop_x = max(0,min(stop_x,dim_x))
+            #     stop_y = max(0,min(stop_y,dim_y))
+            #     stop_z = max(0,min(stop_z,dim_z)) 
+            #     x_sh = stop_x - start_x
+            #     y_sh = stop_y - start_y
+            #     z_sh = stop_z - start_z
+            #     target_shape = (x_sh,y_sh,z_sh) 
+            #     lesion_patch = vol2[:target_shape[0], :target_shape[1], :target_shape[2]]
+            #     new_mask_lesion[start_x:stop_x,start_y:stop_y,start_z:stop_z] = lesion_patch
+                #new_mask_lesion = (new_mask_lesion > 0.5).astype(np.uint8)
             new_mask_lesion[ventricule_mask>0] = 0
+            new_mask_lesion[cortex_mask>0] = 0
+            new_mask_lesion[brain_mask>0] = 0
             new_mask_lesion[label_MNI==0] = 0
+            new_mask_lesion[lesion_mask>0] = 0
             while(np.isin(label_MNI, label).astype(np.uint8).any()):
                 label +=1
+            a = np.sum(new_mask_lesion[left_brain_mask>0])
+            b = np.sum(new_mask_lesion[right_brain_mask>0])
+            if(a>b):
+                label2 = 25
+                new_mask_lesion[right_brain_mask>0] = 0
+            else :
+                label2 = 57
+                new_mask_lesion[left_brain_mask>0] = 0
+                
             
-            
-            label_MNI[new_mask_lesion>0] = label
-            mask_synth_lesions[new_mask_lesion>0] = label
+            label_MNI[new_mask_lesion>0] = np.uint8(label2)
+            mask_synth_lesions[new_mask_lesion>0] = np.uint8(label2)
             label_MNI_lesion_sem[new_mask_lesion>0] = np.uint8(label2)
             mask_synth_lesions_binary[new_mask_lesion>0] = np.uint8(label2)
             
                 
-    lesion_mask_nib = nib.Nifti1Image(mask_synth_lesions,template_nib_T1.affine)
-    label_MNI_nib =  nib.Nifti1Image(label_MNI,template_nib_T1.affine)
-    label_MNI_semantic_nib = nib.Nifti1Image(label_MNI_lesion_sem,template_nib_T1.affine)
-    mask_lesion_binary_nib = nib.Nifti1Image(mask_synth_lesions_binary,template_nib_T1.affine) 
-    # nib.save(lesion_mask_nib,f'/home/jdrochmans/data/juliette/reg/mask_lesions_instance_{name}.nii.gz')
-    nib.save(label_MNI_nib,f'/home/jdrochmans/data/juliette/reg/label_MNI_{name}.nii.gz')
-    nib.save(label_MNI_semantic_nib, f'/home/jdrochmans/data/juliette/reg/label_MNI_sem_{name}.nii.gz')
+    lesion_mask_nib = nib.Nifti1Image(mask_synth_lesions,template.affine)
+    label_MNI_nib =  nib.Nifti1Image(label_MNI,template.affine)
+    #label_MNI_semantic_nib = nib.Nifti1Image(label_MNI_lesion_sem,template_nib_T1.affine)
+    #mask_lesion_binary_nib = nib.Nifti1Image(mask_synth_lesions_binary,template_nib_T1.affine) 
+    nib.save(lesion_mask_nib,f'/home/jdrochmans/data/juliette/reg/mask_synLes_synthseg_instance_{name}.nii.gz')
+    nib.save(label_MNI_nib,f'/home/jdrochmans/data/juliette/label/label_MNI_{name}.nii.gz')
+    #nib.save(label_MNI_semantic_nib, f'/home/jdrochmans/data/juliette/label/label_MNI_sem_{name}.nii.gz')
     # nib.save(mask_lesion_binary_nib,f'/home/jdrochmans/data/juliette/reg/mask_lesions_classe_{name}.nii.gz')
 
     # lesion_mask_p = f'/home/jdrochmans/data/juliette/reg/mask_lesions_instance_{name}.nii.gz'
-    label_MNI_p = f'/home/jdrochmans/data/juliette/reg/label_MNI_{name}.nii.gz'
+    label_MNI_p = f'/home/jdrochmans/data/juliette/label/label_MNI_{name}.nii.gz'
     # label_MNI_sem_p = f'/home/jdrochmans/data/juliette/reg/label_MNI_sem_{name}.nii.gz'
     # bin_lesion_mask_p = f'/home/jdrochmans/data/juliette/reg/mask_lesions_classe_{name}.nii.gz'
     
-    dossier_new_label = "/home/jdrochmans/data/juliette/label/"
+    # dossier_new_label = "/home/jdrochmans/data/juliette/label/"
     # dossier_new_mask = "/home/jdrochmans/data/juliette/mask/"
     
-    output_Newmask1 = os.path.join(dossier_new_label, f'label_lesion_instantiel_{name}.nii.gz')
-    cmd = f"antsApplyTransforms -d 3 -i {label_MNI_p} -r {label_map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask1}"
-    subprocess.Popen(cmd, shell = True).wait()
+    # output_Newmask1 = os.path.join(dossier_new_label, f'label_lesion_instantiel_{name}.nii.gz')
+    # cmd = f"antsApplyTransforms -d 3 -i {label_MNI_p} -r {label_map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask1}"
+    # subprocess.Popen(cmd, shell = True).wait()
     
     # output_Newmask_sem = os.path.join(dossier_new_label, f'label_lesion_sem_{name}.nii.gz')
     # cmd = f"antsApplyTransforms -d 3 -i {label_MNI_sem_p} -r {label_map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask_sem}"
@@ -330,7 +387,7 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
     # cmd = f"antsApplyTransforms -d 3 -i {bin_lesion_mask_p} -r {label_map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask3}"
     # subprocess.Popen(cmd, shell = True).wait()
     
-    return output_Newmask1, name
+    return label_MNI_p, name
 
 
 if __name__ == "__main__":
@@ -338,10 +395,10 @@ if __name__ == "__main__":
     facteur_confluence = 0.15
     points, dict_point_clés = create_points(likelihood_map,path_dir,20)
    # nb_image_traitées = len(label_map)
-    nb_image_traitées = 1
+    nb_image_traitées = 20
     for map in range(nb_image_traitées):
         
-        path_inst, name = label_map_synLes(label_map[map], points, dict_point_clés, facteur_confluence, template_p_T1, 150)
+        path_inst, name = label_map_synLes(label_map[map], points, dict_point_clés, facteur_confluence, template_p_T1, 50)
         print(path_inst)
         img_inst_nib = nib.load(path_inst)
         img_inst = img_inst_nib.get_fdata()
@@ -352,3 +409,6 @@ if __name__ == "__main__":
         mask_sem = nib.Nifti1Image(img_inst, img_inst_nib.affine)
         nib.save(mask_sem,f"/home/jdrochmans/data/juliette/label/label_lesion_sem2_{name}.nii.gz" )
     print("Fin du test")
+    
+    
+    
