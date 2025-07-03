@@ -1,8 +1,4 @@
-
-
 #creation d'un dictionnaire de lésions confluentes 
-
-
 #Ajoute des lésions sur un masque de segmentation synthMS 
 import os
 import re
@@ -58,7 +54,7 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
     points, dict_point_clés = create_points(likelihood_map,path_dir)
     template = ants.image_read(template_p_T1)
     template_nib = nib.load(template_p_T1)
-     #utilise le mask recaled
+    #utilise le mask recaled
     mask_files = [os.path.join(dossier_mask, f) for f in os.listdir(dossier_mask) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_mask, f)) and 'mask-instances' in f]
     mask_files_sorted = sorted(mask_files, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     count_mask = 0
@@ -95,22 +91,22 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
         labels = np.unique(mask)
         print(labels)
         #refaire avec regionprops puis boucler sur toutes les régions => si plusieurs labels : ajouter au dictionnaire comme avant 
-        regions = regionprops(mask)
+        regions = regionprops(mask.astype(np.int32))
         count_lesion = 0
+        
         for region in regions :
             count = 0
-            for lab in labels : 
-                if lab in region :
-                    count +=1
-            if count > 1 :
-                #confluent lesion
-                mask_lesion_i = np.array(region).astype(np.uint8)
-                
-                
-                prop = regionprops(mask_lesion_i)
-                centroid_region = prop[0]['centroid']
+            minx, miny, minz = region.bbox[0], region.bbox[1], region.bbox[2]
+            maxx,maxy,maxz = region.bbox[3], region.bbox[4], region.bbox[5]
+            mask_region = mask[minx:maxx,miny:maxy,minz:maxz]
+            labels_in_region = np.unique(mask_region[mask_region > 0])
             
-                indices = np.argwhere(mask_lesion_i>0)
+            if(len(labels_in_region)>1) :
+                print(labels_in_region)
+                #full_mask =  np.isin(mask_region, labels_in_region).astype(np.uint8)
+                centroid_region = region.centroid
+            
+                indices = np.argwhere(mask_region>0)
                 indice2 = np.max(indices,axis = 0)
             
                 x_max = indice2[0] +1
@@ -122,7 +118,7 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
                 y_min = indice3[1]
                 z_min = indice3[2] 
 
-                mask_lesion_i = mask_lesion_i[x_min:x_max, y_min:y_max, z_min: z_max].astype(np.uint8)
+                mask_lesion_i = mask_region.astype(np.uint32)
                 cnt = 1000
                 for point in points :
                     
@@ -140,3 +136,11 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
         count_mask+=1
     return points, dict_point_clés
 
+
+if __name__ == "__main__":
+    print("Début du test")
+    # facteur_confluence = 0.15
+    points, dict_point_clés = create_points(likelihood_map,path_dir,20)
+   # nb_image_traitées = len(label_map)
+    points, dict_point_clés = shape_dir(likelihood_map,path_dir,dossier_mask,reg_dir,template_p_T1)
+    print("Fin du test")
