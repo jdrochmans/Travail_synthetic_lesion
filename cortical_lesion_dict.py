@@ -12,15 +12,15 @@ from scipy.ndimage import zoom
 from avoiding_map import otsu
 
 #synLes_imagesSains.py to understand all the folders cited here
-folder_seg = "/home/jdrochmans/data/juliette/seg"
-reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
-likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-path_dir = "/home/jdrochmans/data/juliette/shape_dir_corticales/"
-template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
-folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
-folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
-folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
+folder_seg = "seg"
+reg_dir = 'transforms_reg/'
+likelihood_map_path = "likelihood_map_norm_WM30.nii"
+path_dir = "shape_dir_corticales/"
+template_p_T1 = "template.nii"
+folder_mask = "from our private DS : labelsTr"
+folder_registered_mask = "register_mask"
+#folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
+folder_cortex = 'cortex_mask'
 
 
 def create_points(likelihood_map_path,path_dir, min_distance=20):

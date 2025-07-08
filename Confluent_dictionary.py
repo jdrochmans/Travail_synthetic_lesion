@@ -11,13 +11,13 @@ from skimage.measure import label, regionprops
 from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
 #synLes_imagesSains.py to understand all the folders cited here
-reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
-likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
-path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir_confluent/")
-folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
-folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
+reg_dir = 'transforms_reg/'
+likelihood_map_path = "likelihood_map_norm_WM30.nii"
+template_p_T1 = "template.nii"
+path_dir = "shape_dir_confluent/"
+folder_mask = "from our DS : labelsTr"
+folder_registered_mask = "register_mask"
+#folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
 
 
 def create_points(likelihood_map_path,path_dir, min_distance=20):

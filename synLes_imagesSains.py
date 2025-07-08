@@ -11,22 +11,22 @@ from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
 from avoiding_map import otsu
 
-reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/' #folder containing all the transforms matrices
-folder_segmentation = "/home/jdrochmans/data/juliette/seg" #folder with the freesurfer segmentation of all images
-likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii" #likelihood file
-folder_image = "/home/jdrochmans/data/juliette/HC/" #folder with all the healthy subject
-folder_WM = '/home/jdrochmans/data/juliette/WM_mask' #folder containing all the WM mask associated to subjects (in MNI and in the patient space)
-folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask' #folder containing all the cortex mask associated to subjects (in MNI and in the patient space)
-path_dir = "/home/jdrochmans/data/juliette/shape_dir/" #folder containing the shape of lesions (regular)
-template_p_T1 = "/home/jdrochmans/data/juliette/template.nii" #template for the MNI registration
-folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr" #lesion masks from the subjects
-folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask" #folder containing all the lesions masks registered in the MNI space 
-folder_registered_image = "/home/jdrochmans/data/juliette/register_image" #folder containing all the images registered in the MNI space 
-dict_lesions_confluent = "/home/jdrochmans/data/juliette/shape_dir_confluent/" #folder containing the shape of lesions (confluent)
-dict_lesions_corticales = "/home/jdrochmans/data/juliette/shape_dir_corticales/" #folder containing the shape of lesions (corticals)
-folder_reg = '/home/jdrochmans/data/juliette/reg' #folder where the label masks are registered in the MNI space 
-folder_new_label = "/home/jdrochmans/data/juliette/label/" #folder where the label masks in the patient space are found
-folder_new_mask = "/home/jdrochmans/data/juliette/mask/" #folder where the masks in the patient space are found (synthetic lesions, mask with only cortical ones or confluent ones)
+reg_dir = 'transforms_reg/' #folder containing all the transforms matrices
+#folder_segmentation = "/home/jdrochmans/data/juliette/seg" #folder with the freesurfer segmentation of all images
+likelihood_map_path = "likelihood_map_norm_WM30.nii" #likelihood file
+folder_image = "HC/" #folder with all the healthy subject
+#folder_WM = '/home/jdrochmans/data/juliette/WM_mask' #folder containing all the WM mask associated to subjects (in MNI and in the patient space)
+folder_cortex = 'cortex_mask' #folder containing all the cortex mask associated to subjects (in MNI and in the patient space)
+path_dir = "shape_dir/" #folder containing the shape of lesions (regular)
+template_p_T1 = "template.nii" #template for the MNI registration
+#folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr" #lesion masks from the subjects
+folder_registered_mask = "register_mask" #folder containing all the lesions masks registered in the MNI space 
+#folder_registered_image = "/home/jdrochmans/data/juliette/register_image" #folder containing all the images registered in the MNI space 
+dict_lesions_confluent = "shape_dir_confluent/" #folder containing the shape of lesions (confluent)
+dict_lesions_corticales = "shape_dir_corticales/" #folder containing the shape of lesions (corticals)
+folder_reg = 'folder where you can register the masks in MNI space ' #folder where the label masks are registered in the MNI space 
+folder_new_label = "folder where you can register the labels" #folder where the label masks in the patient space are found
+folder_new_mask = "folder where you can register the masks" #folder where the masks in the patient space are found (synthetic lesions, mask with only cortical ones or confluent ones)
 
 
 
@@ -271,12 +271,13 @@ def open_folder_lesion(folder_lesion,num,folder_lesion_list, bool_intracortical,
     return volume, random_file_path
     
     
-def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_point_key, facteur_confluence, template_p_T1, nb_lesions,likelihood_map_path, nb_les_ventricles, nb_les_intra, nb_les_juxta, nb_les_conf, nb_loop,label = 86):
+def label_map_synLes(folder_reg, folder_new_label, folder_new_mask, label_map, points,dict_point_key, facteur_confluence, template_p_T1, nb_lesions,likelihood_map_path, nb_les_ventricles, nb_les_intra, nb_les_juxta, nb_les_conf, nb_loop,label = 86):
     """
     For each subject mask in in the list of paths `label_map`, add synthetic lesions (i.e. cortical, confluent, ventricular...) in anatomically relevant locations. Save also multiple output masks representing cortical lesions, confluents lesions and all the synthetic lesions added 
     to the image.
     Parameters
     ----------
+    folder_reg : fodler where you can register masks/labels in the MNI space.
     label_map : Paths to subject-specific label NIfTI files to process.
     points : Voxel coordinates  associated to the dictionary(from create_points).
     dict_point_key : DIctionary of shape, associated to points to find suited area.
@@ -526,17 +527,17 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
         mask_lesion_intracorticales = nib.Nifti1Image(mask_lesion_intracorticales, template_nib_T1.affine)
         mask_lesion_juxtacorticales = nib.Nifti1Image(mask_lesion_juxtacorticales,template_nib_T1.affine)
         nib.save(lesion_mask_nib,os.path.join(folder_reg, f'mask_synLes_HC_inst_{name}.nii.gz'))
-        nib.save(label_MNI_nib,os.path.join(folder_new_label, f'label_MNI_HC_inst_{name}.nii.gz'))
+        nib.save(label_MNI_nib,os.path.join(folder_reg, f'label_MNI_HC_inst_{name}.nii.gz'))
         nib.save(label_MNI_semantic_nib, os.path.join(folder_reg, f'label_MNI_sem_{name}.nii.gz'))
-        nib.save(mask_lesion_conf_nib,os.path.join(folder_new_label,f'mask_les_conf_MNI_{name}.nii.gz'))
-        nib.save(mask_lesion_intracorticales, os.path.join(folder_new_label, f'mask_lesion_intracorticales_MNI_{name}.nii.gz'))
-        nib.save(mask_lesion_juxtacorticales, os.path.join(folder_new_label, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz'))
+        nib.save(mask_lesion_conf_nib,os.path.join(folder_reg,f'mask_les_conf_MNI_{name}.nii.gz'))
+        nib.save(mask_lesion_intracorticales, os.path.join(folder_reg, f'mask_lesion_intracorticales_MNI_{name}.nii.gz'))
+        nib.save(mask_lesion_juxtacorticales, os.path.join(folder_reg, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz'))
 
         lesion_mask_p = os.path.join(folder_reg, f'mask_synLes_HC_inst_{name}.nii.gz')
-        label_MNI_p = os.path.join(folder_new_label, f'label_MNI_HC_inst_{name}.nii.gz')
-        mask_les_conf_p = os.path.join(folder_new_label,f'mask_les_conf_MNI_{name}.nii.gz')
-        mask_les_intra_p = os.path.join(folder_new_label, f'mask_lesion_intracorticales_MNI_{name}.nii.gz')
-        mask_les_juxta_p = os.path.join(folder_new_label, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz')
+        label_MNI_p = os.path.join(folder_reg, f'label_MNI_HC_inst_{name}.nii.gz')
+        mask_les_conf_p = os.path.join(folder_reg,f'mask_les_conf_MNI_{name}.nii.gz')
+        mask_les_intra_p = os.path.join(folder_reg, f'mask_lesion_intracorticales_MNI_{name}.nii.gz')
+        mask_les_juxta_p = os.path.join(folder_reg, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz')
 
         output_Newmask1 = os.path.join(folder_new_label, f'label_lesion_HC_inst_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {label_MNI_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask1}"
@@ -577,7 +578,7 @@ if __name__ == "__main__":
                 label_map.append(os.path.join(root, f))
     #Create 3 images different for each healthy patient
     for i in range(3):
-        all_output_path, names = label_map_synLes(folder_new_label, folder_new_mask,label_map, points, dict_point_key, facteur_confluence, template_p_T1, 300, likelihood_map_path, 100,100, 20, 50, i, label=86)
+        all_output_path, names = label_map_synLes(folder_reg, folder_new_label, folder_new_mask,label_map, points, dict_point_key, facteur_confluence, template_p_T1, 300, likelihood_map_path, 100,100, 20, 50, i, label=86)
     all_output_path =  sorted(all_output_path, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     names = sorted(names, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     #Create a semantic mask with the instantial for each 

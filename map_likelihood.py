@@ -15,21 +15,21 @@ import subprocess
 from nilearn.image import resample_to_img
 
 
-folder_map_likelihood = "/home/jdrochmans/data/juliette/"
-folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-folder_image = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/imagesTr"
-folder_WM = '/home/jdrochmans/data/juliette/WM_mask'
-template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
+folder_map_likelihood = "likelihood_map"
+folder_mask = "labelsTr"
+folder_image = "imagesTr"
+folder_WM = 'WM_mask'
+template_p_T1 = "/template.nii"
 
 
 #folders from the MS-MIST lesion database
-folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask/"
-folder_segmentation = "/home/jdrochmans/data/juliette/seg"
-folder_lesion_50_100 = '/home/jdrochmans/data/juliette/labels-database/50-100'
-folder_lesion_100_500 = '/home/jdrochmans/data/juliette/labels-database/50-100'
-folder_lesion_500_1000 = '/home/jdrochmans/data/juliette/labels-database/500-1000'
-folder_lesion_1000_5000 = '/home/jdrochmans/data/juliette/labels-database/1000-5000'
-folder_lesion_5000_more = '/home/jdrochmans/data/juliette/labels-database/5000-more'
+folder_registered_mask = "/register_mask/"
+folder_segmentation = "seg"
+folder_lesion_50_100 = 'label_database/50-100'
+folder_lesion_100_500 = 'label_database/50-100'
+folder_lesion_500_1000 = 'label_database/500-1000'
+folder_lesion_1000_5000 = 'label_database/1000-5000'
+folder_lesion_5000_more = 'label_database/5000-more'
 
 save_dir_transforms = '/home/jdrochmans/data/juliette/transforms_reg/'
 os.makedirs(save_dir_transforms, exist_ok=True) 
