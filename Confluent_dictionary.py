@@ -11,18 +11,31 @@ from skimage.measure import label, regionprops
 from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
-dossier_segmentation = "/home/jdrochmans/data/juliette/seg"
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-likelihood_map = nib.load(likelihood_map_path).get_fdata()
-label_map = [os.path.join(dossier_segmentation, f) for f in os.listdir(dossier_segmentation) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_segmentation, f)) ]
-dossier_reg_MNI_label_map = ""
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
 path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir_confluent/")
 dossier_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
 dossier_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
 dossier_registered_image = "/home/jdrochmans/data/juliette/register_image"
 
-def create_points(likelihood_map,path_dir, min_distance=20):
+
+def create_points(likelihood_map_path,path_dir, min_distance=20):
+    """
+    Select points from a 3D likelihood map and make a folder for each.
+
+    Parameters
+    ----------
+    likelihood_map_path : path to the likelihood map
+    path_dir : path to the directory where the folders are stored
+    min_distance : float, optional
+        Minimum Euclidean distance (in voxels) between any two selected points (default=20).
+    Returns
+    -------
+    selected_points : Coordonate of each folder from the dictionary
+    dict_point_keys : Dictionary associating each selected points to the name of the folder in the dictionary
+    """
+    
+    likelihood_map = nib.load(likelihood_map_path).get_fdata()
     points = np.argwhere((likelihood_map > 0.55))
     selected_points = []
 
@@ -32,10 +45,6 @@ def create_points(likelihood_map,path_dir, min_distance=20):
         else:
             if all(np.linalg.norm(point - existing_point) > min_distance for existing_point in selected_points):
                 selected_points.append(point)
-
-            # if np.all(np.isinf(distances)): 
-            #     selected_points.append(point)
-
     selected_points = np.array(selected_points)
     
 
@@ -49,10 +58,29 @@ def create_points(likelihood_map,path_dir, min_distance=20):
     return selected_points, dict_point_clés
 
 
-def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
+def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1, dossier_registered_mask) :
+        
+    """
+    Extract and save in subdirectories confluents lesion from our private DS, registered in the MNI space.
+
+    Parameters
+    ----------
+    likelihood_map_path : Path to the 3D likelihood file.
+    path_dir : Base directory where subfolders for each index (from create_points)
+        already exist.
+    dossier_mask : Directory containing lesion segmentation NIfTI files.
+    reg_dir : Directory holding ANTs forward‐transform files (“<subject>_0GenericAffine.mat”,
+        “<subject>_1Warp.nii[.gz]”) for each subject.
+    template_p_T1 : Path to the T1‐weighted template NIfTI used as registration reference.
+    dossier_registered_mask : Directory where registered lesion masks are stored.
+
+    Returns
+    -------
+    points : Coordinates associated to the keys of the dictionary.
+    dict_point_clés : Dictionary associating points to the directory (0,1,..N) containing the lesions from an area.
+    """
     
-    points, dict_point_clés = create_points(likelihood_map,path_dir)
-    template = ants.image_read(template_p_T1)
+    points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
     #utilise le mask recaled
     mask_files = [os.path.join(dossier_mask, f) for f in os.listdir(dossier_mask) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_mask, f)) and 'mask-instances' in f]
@@ -74,7 +102,6 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
         mask_reg = [os.path.join(dossier_registered_mask, f) 
         for f in os.listdir(dossier_registered_mask) 
         if f.startswith(f"{name}")]
-        print(mask_reg)
         if(mask_reg == []):
             output =  os.path.join(dossier_registered_mask, f'{name}.nii.gz')
             cmd = f"antsApplyTransforms -i {mask_files[i]} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
@@ -89,8 +116,6 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
         if(np.sum(mask) == 0):
             print('probleme, masque vide!')
         labels = np.unique(mask)
-        print(labels)
-        #refaire avec regionprops puis boucler sur toutes les régions => si plusieurs labels : ajouter au dictionnaire comme avant 
         regions = regionprops(mask.astype(np.int32))
         count_lesion = 0
         
@@ -102,8 +127,6 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
             labels_in_region = np.unique(mask_region[mask_region > 0])
             
             if(len(labels_in_region)>1) :
-                print(labels_in_region)
-                #full_mask =  np.isin(mask_region, labels_in_region).astype(np.uint8)
                 centroid_region = region.centroid
             
                 indices = np.argwhere(mask_region>0)
@@ -131,7 +154,6 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
                 file_path = os.path.join(point_dir, f"lesion_{num + count_lesion}_mask_{count_mask}.nii.gz") 
                 nifti_lesion = nib.Nifti1Image(mask_lesion_i, template_nib.affine)
                 nib.save(nifti_lesion,file_path)
-                #np.savez(file_path, volume = mask_lesion_i, centroid=centroid_region, allow_pickle = True) #save dans le directory nommé num un fichier contenant le volume de la lésion
             count_lesion +=1    
         count_mask+=1
     return points, dict_point_clés
@@ -139,8 +161,6 @@ def shape_dir(likelihood_map,path_dir, dossier_mask,reg_dir, template_p_T1) :
 
 if __name__ == "__main__":
     print("Début du test")
-    # facteur_confluence = 0.15
-    points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-   # nb_image_traitées = len(label_map)
-    points, dict_point_clés = shape_dir(likelihood_map,path_dir,dossier_mask,reg_dir,template_p_T1)
+    points, dict_point_clés = create_points(likelihood_map_path,path_dir,20)
+    points, dict_point_clés = shape_dir(likelihood_map_path,path_dir,dossier_mask,reg_dir,template_p_T1)
     print("Fin du test")

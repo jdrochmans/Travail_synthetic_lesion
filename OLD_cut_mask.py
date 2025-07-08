@@ -11,11 +11,6 @@ from pathlib import Path
 dossier_brainmask = "/home/jdrochmans/data/juliette/synthstrip_raw"
 dossier_image_MNI = "/home/jdrochmans/data/juliette/training_label_maps"
 label_map = [os.path.join(dossier_image_MNI, f) for f in os.listdir(dossier_image_MNI) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_image_MNI, f)) ]
-# all_files = list(dossier_segmentation.rglob("*.nii.gz")) 
-# #uniquement file 8?
-# all_files = [f for f in all_files if f.is_file()]
-# all_files_sorted = sorted(all_files, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
-# print(f'all_files:{all_files_sorted}')
 output_seg = "/home/jdrochmans/data/juliette/training_label_maps/crop"
 
 output_brainmask = "/home/jdrochmans/data/juliette/brainmask_crop"

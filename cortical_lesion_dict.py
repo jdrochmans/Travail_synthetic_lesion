@@ -35,7 +35,22 @@ likelihood_map = nib.load(likelihood_map_path).get_fdata()
 template_nib_T1 = nib.load(template_p_T1)
 
 
-def create_points(likelihood_map,path_dir, min_distance=20):
+def create_points(likelihood_map_path,path_dir, min_distance=20):
+    """
+    Select points from a 3D likelihood map and make a folder for each.
+
+    Parameters
+    ----------
+    likelihood_map_path : path to the likelihood map
+    path_dir : path to the directory where the folders are stored
+    min_distance : float, optional
+        Minimum Euclidean distance (in voxels) between any two selected points (default=20).
+    Returns
+    -------
+    selected_points : Coordonate of each folder from the dictionary
+    dict_point_keys : Dictionary associating each selected points to the name of the folder in the dictionary
+    """
+    likelihood_map = nib.load(likelihood_map_path).get_fdata()
     points = np.argwhere((likelihood_map > 0.55))
     selected_points = []
 
@@ -45,10 +60,6 @@ def create_points(likelihood_map,path_dir, min_distance=20):
         else:
             if all(np.linalg.norm(point - existing_point) > min_distance for existing_point in selected_points):
                 selected_points.append(point)
-
-            # if np.all(np.isinf(distances)): 
-            #     selected_points.append(point)
-
     selected_points = np.array(selected_points)
     
 
@@ -62,12 +73,31 @@ def create_points(likelihood_map,path_dir, min_distance=20):
     return selected_points, dict_point_clés
 
 
-def shape_dir(likelihood_map,path_dir, dossier_seg,reg_dir, template_p_T1) :
+def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,dossier_registered_mask) :
     
-    points, dict_point_clés = create_points(likelihood_map,path_dir)
-    template = ants.image_read(template_p_T1)
+    """
+    Extract and save in subdirectories individual lesion masks from cortical segmentations, registered in the MNI space.
+
+    Parameters
+    ----------
+    likelihood_map_path : Path to the 3D likelihood file.
+    path_dir : Base directory where subfolders for each index (from create_points)
+        already exist.
+    dossier_seg : Directory containing cortical segmentation NIfTI files named “<subject>_cort*.nii”.
+    reg_dir : Directory holding ANTs forward‐transform files (“<subject>_0GenericAffine.mat”,
+        “<subject>_1Warp.nii[.gz]”) for each subject.
+    template_p_T1 : Path to the T1‐weighted template NIfTI used as registration reference.
+    dossier_registered_mask : Directory where registered cortical masks are stored.
+
+    Returns
+    -------
+    points : Coordinates associated to the keys of the dictionary.
+    dict_point_clés : Dictionary associating points to the directory (0,1,..N) containing the lesions from an area.
+    """
+    
+    likelihood_map = nib.load(likelihood_map_path).get_fdata()
+    points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
-     #utilise le mask recaled
     fichiers_cort = [f for f in os.listdir(dossier_seg) if "_cort" in f and f.endswith(".nii")]
     print(fichiers_cort)
     mask_files_sorted = sorted(fichiers_cort, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
@@ -136,7 +166,6 @@ def shape_dir(likelihood_map,path_dir, dossier_seg,reg_dir, template_p_T1) :
             cortex_total = np.sum(cortex_crop[mask_local])
             intracort = False
             if(total == cortex_total):
-                print('lesion intracorticale')
                 intracort = True
             for point in points :
                 
@@ -153,15 +182,12 @@ def shape_dir(likelihood_map,path_dir, dossier_seg,reg_dir, template_p_T1) :
                 file_path = os.path.join(point_dir, f"lesion_intracort_{num + count_lesion}_mask_{count_mask}.nii.gz") 
             nifti_lesion = nib.Nifti1Image(mask_lesion_i, template_nib.affine)
             nib.save(nifti_lesion,file_path)
-            #np.savez(file_path, volume = mask_lesion_i, centroid=centroid_region, allow_pickle = True) #save dans le directory nommé num un fichier contenant le volume de la lésion
             count_lesion +=1
         count_mask+=1
     return points, dict_point_clés
 
 if __name__ == "__main__":
     print("Début du test")
-    # facteur_confluence = 0.15
     points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-   # nb_image_traitées = len(label_map)
     points, dict_point_clés = shape_dir(likelihood_map,path_dir,dossier_seg,reg_dir,template_p_T1)
     print("Fin du test")

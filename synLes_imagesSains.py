@@ -14,7 +14,7 @@ from avoiding_map import otsu
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 dossier_segmentation = "/home/jdrochmans/data/juliette/seg"
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-dossier_image = "/home/jdrochmans/data/juliette/HC/sub-162"
+dossier_image = "/home/jdrochmans/data/juliette/HC/"
 dossier_WM = '/home/jdrochmans/data/juliette/WM_mask'
 dossier_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
 path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir/")
@@ -24,9 +24,19 @@ dossier_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
 dossier_registered_image = "/home/jdrochmans/data/juliette/register_image"
 dict_lesions_confluent = "/home/jdrochmans/data/juliette/shape_dir_confluent/"
 dict_lesions_corticales = "/home/jdrochmans/data/juliette/shape_dir_corticales/"
+dossier_reg = '/home/jdrochmans/data/juliette/reg'
+dossier_new_label = "/home/jdrochmans/data/juliette/label/"
+dossier_new_mask = "/home/jdrochmans/data/juliette/mask/"
 likelihood_map = nib.load(likelihood_map_path).get_fdata()
 template_nib_T1 = nib.load(template_p_T1)
-label_map = [os.path.join(dossier_image, f) for f in os.listdir(dossier_image) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_image, f)) and 'mask-FSaseg_T2' in f]
+
+label_map = []
+for root, dirs, files in os.walk(dossier_image):
+    for f in files:
+        if f.endswith(('.nii', '.nii.gz')) and 'mask-FSaseg_T2' in f:
+            label_map.append(os.path.join(root, f))
+
+
 
 def create_points(likelihood_map_path,path_dir, min_distance=20):
     
@@ -69,7 +79,7 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     return selected_points, dict_point_clés
 
 
-def create_likelihood_ventricules(ventricules_mask, label_MNI, likelihood_map_path, output_path):
+def create_likelihood_ventricules(ventricules_mask, label_MNI, likelihood_map_path):
     
     """
     Generate a normalized likelihood map around ventricles.
@@ -87,8 +97,6 @@ def create_likelihood_ventricules(ventricules_mask, label_MNI, likelihood_map_pa
         masked to exclude non-ventricular labels and outside the extended region.
     
     """
-    
-    likelihood_nib = nib.load(likelihood_map_path)
     likelihood_map = nib.load(likelihood_map_path).get_fdata()
     
     ventricules_mask[ventricules_mask>0]=1
@@ -102,9 +110,6 @@ def create_likelihood_ventricules(ventricules_mask, label_MNI, likelihood_map_pa
     area_interest = area_interest + likelihood_map
     area_interest = (area_interest - area_interest.min())/(area_interest.max() - area_interest.min())
     area_interest[area_interest_extended==0] = 0
-    area_nift = nib.Nifti1Image(area_interest,likelihood_nib.affine)
-    #nib.save(area_nift, f'/home/jdrochmans/data/juliette/label/ventricule_area_interest_162.nii.gz')
-    nib.save(area_nift, output_path)
     return area_interest
 
 
@@ -188,7 +193,7 @@ def calculate_transforms(reg_dir, name) :
         ) 
     return forward_transforms, backward_transforms
 
-def calculate_point(flat_likelihood,ventricule_mask, cortex_mask, label_MNI,mask_synth_lesions,lesion_mask, bool_cortex):
+def calculate_point(flat_likelihood,ventricule_mask, cortex_mask, label_MNI,mask_synth_lesions,lesion_mask, bool_cortex, likelihood_map_path):
     
     """
     Select a random voxel weighted by likelihood and check it against anatomical masks.
@@ -212,7 +217,7 @@ def calculate_point(flat_likelihood,ventricule_mask, cortex_mask, label_MNI,mask
         True if the sampled voxel meets the mask criteria, False otherwise.
     """
     
-    
+    likelihood_map = nib.load(likelihood_map_path).get_fdata()
     good_cand = False
     valid_indices = np.where(flat_likelihood > 0)[0]
     valid_probs = flat_likelihood[valid_indices]
@@ -284,10 +289,36 @@ def open_folder_lesion(dossier_lesion,num,dossier_lesion_list, bool_intracortica
     return volume, random_file_path
     
     
-def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, template_p_T1, nb_lesions,likelihood_map_path, nb_les_ventricles, nb_les_intra, nb_les_juxta, nb_les_conf,label = 86):
+def label_map_synLes(dossier_new_label, dossier_new_mask, label_map, points,dict_point_clés, facteur_confluence, template_p_T1, nb_lesions,likelihood_map_path, nb_les_ventricles, nb_les_intra, nb_les_juxta, nb_les_conf, nb_loop,label = 86):
+    """
+    For each subject mask in `label_map`, register it to a template, sample and place
+    synthetic lesions in anatomically valid locations, and save multiple output masks representing cortical lesions, confluents lesions and all the synthetic lesions added 
+    to the image.
+    Parameters
+    ----------
+    label_map : Paths to subject-specific label NIfTI files to process.
+    points : Voxel coordinates  associated to the dictionary(from create_points).
+    dict_point_clés : DIctionary of shape, associated to points to find suited area.
+    facteur_confluence : Maximum allowed lesion overlap ratio when placing synthetic lesions.
+    template_p_T1 : Path to the T1-weighted template NIfTI used as registration target.
+    nb_lesions : Total number of lesions to generate per subject.
+    likelihood_map_path : Path to the original likelihood map NIfTI.
+    nb_les_ventricules : Number of lesions to force into periventricular regions.
+    nb_les_intra : Number of intracortical lesions to generate.
+    nb_les_juxta : Number of juxtacortical lesions to generate.
+    nb_les_conf : Number of confluent lesions to generate.
+    label : Starting label value for synthetic lesions (default=86).
 
-    
+    Returns
+    -------
+    output_Newmask1 : Path to the final synthetic lesion label map in original subject space.
+    name : Subject identifier extracted from each input `label_map` entry.
+    """
+
+    all_output_path = []
+    names = []
     for map in label_map:
+        print(map)
         path_in_name = os.path.basename(map)
         name = path_in_name.split("_")[0]
         template_nib_T1 = nib.load(template_p_T1)
@@ -301,14 +332,14 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
 
         label_MNI = nib.load(output)
         dim_x,dim_y,dim_z = label_MNI.shape
-        label2 = label
+        label_sem = label
         label_MNI = label_MNI.get_fdata()
         label_MNI_lesion_sem = label_MNI.copy()
         flat_likelihood = likelihood_map.flatten()
         ventricule_mask = np.isin(label_MNI, [4,14,15,43,72,49,10]).astype(np.uint32)
         avoid_CC = np.isin(label_MNI, [251,252,253,254,255]).astype(np.uint32)
         lesion_mask = np.isin(label_MNI, 77).astype(np.uint32)
-        norm_map = create_likelihood_ventricules(ventricule_mask,label_MNI, likelihood_map)
+        norm_map = create_likelihood_ventricules(ventricule_mask,label_MNI, likelihood_map_path)
         norm_map_flatten = norm_map.flatten()
         
         mask_synth_lesions = np.zeros((label_MNI.shape), dtype = np.float32)
@@ -330,12 +361,9 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
             
             max_attempt = 20
             attempt = 0
-            bool = False
+            bool_dict = False
             new_mask_lesion = np.zeros((label_MNI.shape), dtype = np.float32)
-        # value_cort = nb_lesions - (nb_lesions/5)
-        # total_les_corticales = nb_lesions - value_cort
-            total_les_corticales = 150
-            while(bool == False and attempt < max_attempt):
+            while(bool_dict == False and attempt < max_attempt):
                 max_iter = 10
                 iteration = 0
                 dossier_assoc_num = []
@@ -346,19 +374,19 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                     good_cand = False
                     while good_cand == False :
                         if(nb_lesions < nb_les_ventricles or (i > nb_les_ventricles+ nb_les_intra+ nb_les_juxta)):
-                            new_centroid, good_cand = calculate_point(flat_likelihood,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, False)
+                            new_centroid, good_cand = calculate_point(flat_likelihood,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, False,likelihood_map_path)
                         else :
                             if(i < nb_les_ventricles):
-                                new_centroid, good_cand = calculate_point(norm_map_flatten,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, False)
+                                new_centroid, good_cand = calculate_point(norm_map_flatten,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, False,likelihood_map_path)
                             
                             if(nb_les_ventricles<= i <= nb_les_ventricles + nb_les_intra+nb_les_juxta) :
                                 
                                 if(nb_les_ventricles + nb_les_juxta <= i):
                                     bool_intra = True
                                     bool_juxta = False
-                                    new_centroid, good_cand = calculate_point(flat_likelihood_cortex_intra,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, True)
+                                    new_centroid, good_cand = calculate_point(flat_likelihood_cortex_intra,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, True,likelihood_map_path)
                                 else :
-                                    new_centroid, good_cand = calculate_point(flat_likelihood_cortex_juxta,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, True)
+                                    new_centroid, good_cand = calculate_point(flat_likelihood_cortex_juxta,ventricule_mask,cortex_mask,label_MNI,mask_synth_lesions,lesion_mask, True,likelihood_map_path)
                                     bool_intra = False
                                     bool_juxta = True
                                 cortex_les = True
@@ -399,9 +427,11 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                         conf = True
                     if(cortex_les == True):
                         volume, random_file_path = open_folder_lesion(dict_lesions_corticales,num, dossier_assoc_num_cortex, bool_intra,bool_juxta) 
+                        
                         type_les = random_file_path.split('/')[7].split('_')[1]
                             
-                    elif(cortex_les == False and (i>nb_les_ventricles+ nb_les_intra+ nb_les_juxta + nb_les_conf)):
+                    # else(cortex_les == False and (i>nb_les_ventricles+ nb_les_intra+ nb_les_juxta + nb_les_conf)):
+                    else:
                         volume, random_file_path = open_folder_lesion(path_dir,num, dossier_assoc_num, bool_intra, False) 
                         if(i > nb_les_ventricles+ nb_les_intra+ nb_les_juxta + nb_les_conf):
                             mult = np.random.normal(loc=1.2, scale=0.5)
@@ -437,7 +467,7 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
 
                     tol_ratio_2 = np.sum(mask_synth_lesions[start_x:stop_x, start_y:stop_y, start_z:stop_z] > 0) / ((stop_x-start_x) * (stop_y-start_y) * (stop_z-start_z))
                     if(start_x<stop_x and start_y < stop_y and start_z < stop_z  and tol_ratio_2 < facteur_confluence): 
-                        bool = True  
+                        bool_dict = True  
                     else :
                         attempt +=1
             if(attempt == max_attempt):
@@ -473,8 +503,8 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                     
                     label_MNI[new_mask_lesion>0] = np.uint32(label)
                     mask_synth_lesions[new_mask_lesion>0] = np.uint32(label)
-                    label_MNI_lesion_sem[new_mask_lesion>0] = np.uint32(label2)
-                    mask_synth_lesions_binary[new_mask_lesion>0] = np.uint32(label2)
+                    label_MNI_lesion_sem[new_mask_lesion>0] = np.uint32(label_sem)
+                    mask_synth_lesions_binary[new_mask_lesion>0] = np.uint32(label_sem)
                         
                         
                 
@@ -491,11 +521,11 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
                         
                         label_MNI[new_mask_lesion>0] = np.uint32(label)
                         mask_synth_lesions[new_mask_lesion>0] = np.uint32(label)
-                        label_MNI_lesion_sem[new_mask_lesion>0] = np.uint32(label2)
-                        mask_synth_lesions_binary[new_mask_lesion>0] = np.uint32(label2)
+                        label_MNI_lesion_sem[new_mask_lesion>0] = np.uint32(label_sem)
+                        mask_synth_lesions_binary[new_mask_lesion>0] = np.uint32(label_sem)
                     else : 
-                        labels1 = np.unique(new_mask_lesion).astype(np.uint32)
-                        for lab in labels1:
+                        labels_conf = np.unique(new_mask_lesion).astype(np.uint32)
+                        for lab in labels_conf:
                             
                             if lab == 0:
                                 continue
@@ -515,64 +545,71 @@ def label_map_synLes(label_map, points,dict_point_clés, facteur_confluence, tem
         mask_lesion_conf_nib = nib.Nifti1Image(mask_lesion_conf,template_nib_T1.affine)
         mask_lesion_intracorticales = nib.Nifti1Image(mask_lesion_intracorticales, template_nib_T1.affine)
         mask_lesion_juxtacorticales = nib.Nifti1Image(mask_lesion_juxtacorticales,template_nib_T1.affine)
-        nib.save(lesion_mask_nib,f'/home/jdrochmans/data/juliette/reg/mask_synLes_HC_inst_{name}.nii.gz')
-        nib.save(label_MNI_nib,f'/home/jdrochmans/data/juliette/label/label_MNI_HC_inst_{name}.nii.gz')
-        nib.save(label_MNI_semantic_nib, f'/home/jdrochmans/data/juliette/label/label_MNI_sem_{name}.nii.gz')
-        nib.save(mask_lesion_conf_nib,f'/home/jdrochmans/data/juliette/label/mask_les_conf_MNI_{name}.nii.gz' )
-        nib.save(mask_lesion_intracorticales, f'/home/jdrochmans/data/juliette/label/mask_lesion_intracorticales_MNI_{name}.nii.gz')
-        nib.save(mask_lesion_juxtacorticales, f'/home/jdrochmans/data/juliette/label/mask_lesion_juxtacorticales_MNI_{name}.nii.gz' )
+        nib.save(lesion_mask_nib,os.path.join(dossier_reg, f'mask_synLes_HC_inst_{name}.nii.gz'))
+        nib.save(label_MNI_nib,os.path.join(dossier_new_label, f'label_MNI_HC_inst_{name}.nii.gz'))
+        nib.save(label_MNI_semantic_nib, os.path.join(dossier_reg, f'label_MNI_sem_{name}.nii.gz'))
+        nib.save(mask_lesion_conf_nib,os.path.join(dossier_new_label,f'mask_les_conf_MNI_{name}.nii.gz'))
+        nib.save(mask_lesion_intracorticales, os.path.join(dossier_new_label, f'mask_lesion_intracorticales_MNI_{name}.nii.gz'))
+        nib.save(mask_lesion_juxtacorticales, os.path.join(dossier_new_label, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz'))
 
-        lesion_mask_p = f'/home/jdrochmans/data/juliette/reg/mask_synLes_HC_inst_{name}.nii.gz'
-        label_MNI_p = f'/home/jdrochmans/data/juliette/label/label_MNI_HC_inst_{name}.nii.gz'
-        label_MNI_sem_p = f'/home/jdrochmans/data/juliette/reg/label_MNI_sem_{name}.nii.gz'
-        mask_les_conf_p = f'/home/jdrochmans/data/juliette/label/mask_les_conf_MNI_{name}.nii.gz'
-        mask_les_intra_p = f'/home/jdrochmans/data/juliette/label/mask_lesion_intracorticales_MNI_{name}.nii.gz'
-        mask_les_juxta_p = f'/home/jdrochmans/data/juliette/label/mask_lesion_juxtacorticales_MNI_{name}.nii.gz'
+        lesion_mask_p = os.path.join(dossier_reg, f'mask_synLes_HC_inst_{name}.nii.gz')
+        label_MNI_p = os.path.join(dossier_new_label, f'label_MNI_HC_inst_{name}.nii.gz')
+        label_MNI_sem_p = os.path.join(dossier_reg, f'label_MNI_sem_{name}.nii.gz')
+        mask_les_conf_p = os.path.join(dossier_new_label,f'mask_les_conf_MNI_{name}.nii.gz')
+        mask_les_intra_p = os.path.join(dossier_new_label, f'mask_lesion_intracorticales_MNI_{name}.nii.gz')
+        mask_les_juxta_p = os.path.join(dossier_new_label, f'mask_lesion_juxtacorticales_MNI_{name}.nii.gz')
 
-        dossier_new_label = "/home/jdrochmans/data/juliette/label/"
-        dossier_new_mask = "/home/jdrochmans/data/juliette/mask/"
+        # dossier_new_label = "/home/jdrochmans/data/juliette/label/"
+        # dossier_new_mask = "/home/jdrochmans/data/juliette/mask/"
         
-        output_Newmask1 = os.path.join(dossier_new_label, f'label_lesion_HC_inst_{name}.nii.gz')
+        output_Newmask1 = os.path.join(dossier_new_label, f'label_lesion_HC_inst_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {label_MNI_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask1}"
         subprocess.Popen(cmd, shell = True).wait()
         
-        output_Newmask2 = os.path.join(dossier_new_mask, f'mask_lesion_HC_sem_{name}.nii.gz')
+        output_Newmask2 = os.path.join(dossier_new_mask, f'mask_lesion_HC_sem_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {lesion_mask_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask2}"
         subprocess.Popen(cmd, shell = True).wait()
         
         
-        output_Newmask4 = os.path.join(dossier_new_mask, f'mask_lesion_conf_{name}.nii.gz')
+        output_Newmask4 = os.path.join(dossier_new_mask, f'mask_lesion_conf_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {mask_les_conf_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask4}"
         subprocess.Popen(cmd, shell = True).wait()
         
         
-        output_Newmask5 = os.path.join(dossier_new_mask, f'mask_lesion_intracorticales_{name}.nii.gz')
+        output_Newmask5 = os.path.join(dossier_new_mask, f'mask_lesion_intracorticales_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {mask_les_intra_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask5}"
         subprocess.Popen(cmd, shell = True).wait()
         
-        output_Newmask6 = os.path.join(dossier_new_mask, f'mask_lesion_juxtacorticales_{name}.nii.gz')
+        output_Newmask6 = os.path.join(dossier_new_mask, f'mask_lesion_juxtacorticales_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {mask_les_juxta_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask6}"
         subprocess.Popen(cmd, shell = True).wait()
-        
+        all_output_path.append(output_Newmask1)
+        names.append(name)
     
-    return output_Newmask1, name
+    return all_output_path, names
 
 
 if __name__ == "__main__":
-    print("Début du test")
-    facteur_confluence = 0.15
-    points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-    path_inst, name = label_map_synLes(label_map, points, dict_point_clés, facteur_confluence, template_p_T1, 500, likelihood_map_path, 50,100, 20, 50, label=86)
-    # print(path_inst)
-    # img_inst_nib = nib.load(path_inst)
-    # img_inst = img_inst_nib.get_fdata()
-    
-    # img_inst[(img_inst >= 86) & (img_inst < 251)] = 86
-    # img_inst[img_inst>255] = 86
-    
-    # mask_sem = nib.Nifti1Image(img_inst, img_inst_nib.affine)
-    # nib.save(mask_sem,f"/home/jdrochmans/data/juliette/label/label_lesion_sem2_HC_{name}.nii.gz" )
-    print("Fin du test")
+    print("Beginning")
+    facteur_confluence = 0.05
+    points, dict_point_clés = create_points(likelihood_map_path,path_dir,20)
+    j = 0
+    for i in range(3):
+        
+        all_output_path, names = label_map_synLes(dossier_new_label, dossier_new_mask,label_map, points, dict_point_clés, facteur_confluence, template_p_T1, 300+j, likelihood_map_path, 100,100, 20, 50+j, i, label=86)
+        j+= 10
+    all_output_path =  sorted(all_output_path, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
+    names = sorted(names, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
+    for i in range(len(all_output_path)):
+        img_inst_nib = nib.load(all_output_path[i])
+        img_inst = img_inst_nib.get_fdata()
+        
+        img_inst[(img_inst >= 86) & (img_inst < 251)] = 86
+        img_inst[img_inst>255] = 86
+        
+        mask_sem = nib.Nifti1Image(img_inst, img_inst_nib.affine)
+        nib.save(mask_sem,os.path.join(dossier_new_label,f'label_lesion_sem2_HC_{names[i]}.nii.gz'))
+    print("End")
     
     
     

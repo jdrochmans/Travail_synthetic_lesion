@@ -1,3 +1,7 @@
+
+#OLD!!!
+
+
 #Ajoute des lésions sur un masque de segmentation synthMS 
 import os
 import re
