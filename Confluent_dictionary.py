@@ -51,7 +51,6 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     dict_point_clés = {}
     
     for i,point in enumerate(selected_points):
-        print(point)
         dict_point_clés[tuple(point)] = i 
         dir_point = os.path.join(path_dir, str(i))
         os.makedirs(dir_point, exist_ok=True)
@@ -114,7 +113,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
             mask_p = mask_reg[0]
         mask = aligned_mask.numpy()
         if(np.sum(mask) == 0):
-            print('probleme, masque vide!')
+            print('Empty mask!')
         labels = np.unique(mask)
         regions = regionprops(mask.astype(np.int32))
         count_lesion = 0
@@ -160,7 +159,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
 
 
 if __name__ == "__main__":
-    print("Début du test")
+    print("Beginning")
     points, dict_point_clés = create_points(likelihood_map_path,path_dir,20)
     points, dict_point_clés = shape_dir(likelihood_map_path,path_dir,dossier_mask,reg_dir,template_p_T1)
-    print("Fin du test")
+    print("End")

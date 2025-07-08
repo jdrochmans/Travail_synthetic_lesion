@@ -102,7 +102,7 @@ def likelihood(dossier_mask, dossier_segmentation, dossier_image, template_p, do
                 aligned_mask = ants.image_read(output)
                 mask_p = output
             else : 
-                print(f"Pas de transformations trouvées pour {name}, recalcul en cours...")
+                print(f"No transformations found for {name}, registration of the image needed")
 
                 image_filled_p = lesion_fill(mask_files_sorted[i],image_files_sorted[i])
                 subprocess.Popen(
@@ -110,8 +110,6 @@ def likelihood(dossier_mask, dossier_segmentation, dossier_image, template_p, do
                     shell=True
                 ).wait()
 
-                print("Fichiers générés :", os.listdir(save_dir_transforms))
-                print(f'chemin genere : {save_dir_transforms}/{name}') 
                 transformations_fwd = sorted(
                 [os.path.join(save_dir_transforms, f) 
                 for f in os.listdir(save_dir_transforms) 
@@ -120,7 +118,7 @@ def likelihood(dossier_mask, dossier_segmentation, dossier_image, template_p, do
                 re.search(r"_1Warp\.nii(\.gz)?$", f))
             ]
             )
-                print(transformations_fwd)
+               
                 output =  os.path.join(dossier_registered_mask, f'mask_{name}.nii.gz')
                 cmd = f"antsApplyTransforms -i {mask_files_sorted[i]} -r {template_p} -n {'NearestNeighbor'} -t {transformations_fwd[1]} -t {transformations_fwd[0]} -o {output}"
                 subprocess.Popen(cmd, shell = True).wait()

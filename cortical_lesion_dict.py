@@ -66,7 +66,6 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     dict_point_clés = {}
     
     for i,point in enumerate(selected_points):
-        print(point)
         dict_point_clés[tuple(point)] = i 
         dir_point = os.path.join(path_dir, str(i))
         os.makedirs(dir_point, exist_ok=True)
@@ -99,9 +98,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
     points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
     fichiers_cort = [f for f in os.listdir(dossier_seg) if "_cort" in f and f.endswith(".nii")]
-    print(fichiers_cort)
     mask_files_sorted = sorted(fichiers_cort, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
-    print(mask_files_sorted)
     count_mask = 0
     for i in range(len(mask_files_sorted)):
         path_in_name = os.path.basename(mask_files_sorted[i])
@@ -119,7 +116,6 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
         mask_reg = [os.path.join(dossier_registered_mask, f) 
         for f in os.listdir(dossier_registered_mask) 
         if f.startswith(f"{name}_cortical")]
-        print(mask_reg)
         if(mask_reg == []):
             output =  os.path.join(dossier_registered_mask, f'{name}_cortical.nii.gz')
             cmd = f"antsApplyTransforms -i {os.path.join(dossier_seg,mask_files_sorted[i])} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
@@ -132,9 +128,8 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
             mask_p = mask_reg[0]
         mask = aligned_mask.numpy()
         if(np.sum(mask) == 0):
-            print('probleme, masque vide!')
+            print('Empty mask!')
         labels = np.unique(mask)
-        print(labels)
         cortex_reg = [os.path.join(dossier_cortex, f) 
         for f in os.listdir(dossier_cortex) 
         if f.startswith(f"mask_cortex_registered_{name}")]
@@ -187,7 +182,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
     return points, dict_point_clés
 
 if __name__ == "__main__":
-    print("Début du test")
+    print("Beginning")
     points, dict_point_clés = create_points(likelihood_map,path_dir,20)
     points, dict_point_clés = shape_dir(likelihood_map,path_dir,dossier_seg,reg_dir,template_p_T1)
-    print("Fin du test")
+    print("End")

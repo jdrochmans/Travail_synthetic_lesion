@@ -72,7 +72,6 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     dict_point_clés = {}
     
     for i,point in enumerate(selected_points):
-        print(point)
         dict_point_clés[tuple(point)] = i 
         dir_point = os.path.join(path_dir, str(i))
         os.makedirs(dir_point, exist_ok=True)
@@ -429,8 +428,7 @@ def label_map_synLes(dossier_new_label, dossier_new_mask, label_map, points,dict
                         volume, random_file_path = open_folder_lesion(dict_lesions_corticales,num, dossier_assoc_num_cortex, bool_intra,bool_juxta) 
                         
                         type_les = random_file_path.split('/')[7].split('_')[1]
-                            
-                    # else(cortex_les == False and (i>nb_les_ventricles+ nb_les_intra+ nb_les_juxta + nb_les_conf)):
+
                     else:
                         volume, random_file_path = open_folder_lesion(path_dir,num, dossier_assoc_num, bool_intra, False) 
                         if(i > nb_les_ventricles+ nb_les_intra+ nb_les_juxta + nb_les_conf):
@@ -471,7 +469,7 @@ def label_map_synLes(dossier_new_label, dossier_new_mask, label_map, points,dict
                     else :
                         attempt +=1
             if(attempt == max_attempt):
-                print(f"Aucune position valide trouvée après {max_attempt} essais, abandon de cette lésion.")
+                print(f"No valid position found after {max_attempt} trials, change of lesion's form.")
                 
                 continue 
             else :
