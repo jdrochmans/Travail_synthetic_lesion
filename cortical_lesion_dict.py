@@ -11,27 +11,16 @@ from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
 from avoiding_map import otsu
 
-
+#synLes_imagesSains.py to understand all the folders cited here
 folder_seg = "/home/jdrochmans/data/juliette/seg"
-
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-likelihood_map = nib.load(likelihood_map_path).get_fdata()
-template_p = "/home/jdrochmans/data/juliette/template.nii"
-
-template_T1 = "/home/jdrochmans/data/juliette/template.nii"
-
-path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir_corticales/")
-
+path_dir = "/home/jdrochmans/data/juliette/shape_dir_corticales/"
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
 folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
 folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
 folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
 folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
-
-
-likelihood_map = nib.load(likelihood_map_path).get_fdata()
-template_nib_T1 = nib.load(template_p_T1)
 
 
 def create_points(likelihood_map_path,path_dir, min_distance=20):
@@ -182,6 +171,6 @@ def shape_dir(likelihood_map_path,path_dir, folder_seg,reg_dir, template_p_T1,fo
 
 if __name__ == "__main__":
     print("Beginning")
-    points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-    points, dict_point_clés = shape_dir(likelihood_map,path_dir,folder_seg,reg_dir,template_p_T1)
+    points, dict_point_clés = create_points(likelihood_map_path,path_dir,20)
+    points, dict_point_clés = shape_dir(likelihood_map_path,path_dir,folder_seg,reg_dir,template_p_T1)
     print("End")

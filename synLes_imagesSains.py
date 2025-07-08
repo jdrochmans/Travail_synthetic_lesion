@@ -11,22 +11,22 @@ from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
 from avoiding_map import otsu
 
-reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
-folder_segmentation = "/home/jdrochmans/data/juliette/seg"
-likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
-folder_image = "/home/jdrochmans/data/juliette/HC/"
-folder_WM = '/home/jdrochmans/data/juliette/WM_mask'
-folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
-path_dir = "/home/jdrochmans/data/juliette/shape_dir/"
-template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
-folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
-folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
-dict_lesions_confluent = "/home/jdrochmans/data/juliette/shape_dir_confluent/"
-dict_lesions_corticales = "/home/jdrochmans/data/juliette/shape_dir_corticales/"
-folder_reg = '/home/jdrochmans/data/juliette/reg'
-folder_new_label = "/home/jdrochmans/data/juliette/label/"
-folder_new_mask = "/home/jdrochmans/data/juliette/mask/"
+reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/' #folder containing all the transforms matrices
+folder_segmentation = "/home/jdrochmans/data/juliette/seg" #folder with the freesurfer segmentation of all images
+likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii" #likelihood file
+folder_image = "/home/jdrochmans/data/juliette/HC/" #folder with all the healthy subject
+folder_WM = '/home/jdrochmans/data/juliette/WM_mask' #folder containing all the WM mask associated to subjects (in MNI and in the patient space)
+folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask' #folder containing all the cortex mask associated to subjects (in MNI and in the patient space)
+path_dir = "/home/jdrochmans/data/juliette/shape_dir/" #folder containing the shape of lesions (regular)
+template_p_T1 = "/home/jdrochmans/data/juliette/template.nii" #template for the MNI registration
+folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr" #lesion masks from the subjects
+folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask" #folder containing all the lesions masks registered in the MNI space 
+folder_registered_image = "/home/jdrochmans/data/juliette/register_image" #folder containing all the images registered in the MNI space 
+dict_lesions_confluent = "/home/jdrochmans/data/juliette/shape_dir_confluent/" #folder containing the shape of lesions (confluent)
+dict_lesions_corticales = "/home/jdrochmans/data/juliette/shape_dir_corticales/" #folder containing the shape of lesions (corticals)
+folder_reg = '/home/jdrochmans/data/juliette/reg' #folder where the label masks are registered in the MNI space 
+folder_new_label = "/home/jdrochmans/data/juliette/label/" #folder where the label masks in the patient space are found
+folder_new_mask = "/home/jdrochmans/data/juliette/mask/" #folder where the masks in the patient space are found (synthetic lesions, mask with only cortical ones or confluent ones)
 
 
 
@@ -51,7 +51,6 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     likelihood_map = nib.load(likelihood_map_path).get_fdata()
     points = np.argwhere((likelihood_map > 0.55))
     selected_points = []
-
     for point in points:
         if len(selected_points) == 0:
             selected_points.append(point)
@@ -59,8 +58,6 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
             if all(np.linalg.norm(point - existing_point) > min_distance for existing_point in selected_points):
                 selected_points.append(point)
     selected_points = np.array(selected_points)
-    
-
     dict_point_key = {}
     for i,point in enumerate(selected_points):
         dict_point_key[tuple(point)] = i 
@@ -88,7 +85,6 @@ def create_likelihood_ventricles(ventricles_mask, label_MNI, likelihood_map_path
     
     """
     likelihood_map = nib.load(likelihood_map_path).get_fdata()
-    
     ventricles_mask[ventricles_mask>0]=1
     dilated_ventricle_mask = binary_dilation(ventricles_mask,ball(4))
     dilated_ventricle_mask_limit = binary_dilation(ventricles_mask, ball(5))
@@ -305,6 +301,7 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
     all_output_path = []
     names = []
     for map in label_map:
+        label = 86
         print(map)
         path_in_name = os.path.basename(map)
         name = path_in_name.split("_")[0]

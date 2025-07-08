@@ -10,6 +10,7 @@ import random
 from skimage.measure import label, regionprops
 from skimage.morphology import ball, binary_dilation, binary_erosion
 from scipy.ndimage import zoom
+#synLes_imagesSains.py to understand all the folders cited here
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
