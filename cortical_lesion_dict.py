@@ -92,14 +92,13 @@ def shape_dir(likelihood_map_path,path_dir, folder_seg,reg_dir, template_p_T1,fo
     points : Coordinates associated to the keys of the dictionary.
     dict_point_clés : Dictionary associating points to the directory (0,1,..N) containing the lesions from an area.
     """
-    
-    likelihood_map = nib.load(likelihood_map_path).get_fdata()
     points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
     fichiers_cort = [f for f in os.listdir(folder_seg) if "_cort" in f and f.endswith(".nii")]
     mask_files_sorted = sorted(fichiers_cort, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     count_mask = 0
     for i in range(len(mask_files_sorted)):
+        #registration of the lesion mask
         path_in_name = os.path.basename(mask_files_sorted[i])
         name = path_in_name.split("_")[0]
         forward_transforms = []
@@ -129,6 +128,7 @@ def shape_dir(likelihood_map_path,path_dir, folder_seg,reg_dir, template_p_T1,fo
         if(np.sum(mask) == 0):
             print('Empty mask!')
         labels = np.unique(mask)
+        #Use of the cortex mask to see if the lesion is intracortical or juxtacortical
         cortex_reg = [os.path.join(folder_cortex, f) 
         for f in os.listdir(folder_cortex) 
         if f.startswith(f"mask_cortex_registered_{name}")]
@@ -162,7 +162,7 @@ def shape_dir(likelihood_map_path,path_dir, folder_seg,reg_dir, template_p_T1,fo
             if(total == cortex_total):
                 intracort = True
             for point in points :
-                
+                #find where to place the shape following the centroid associated to each folder
                 if  np.linalg.norm(centroid_region - point) < cnt :
                     point_mei = point 
                     cnt = np.linalg.norm(centroid_region - point)

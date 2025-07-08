@@ -104,7 +104,6 @@ def create_likelihood_ventricles(ventricles_mask, label_MNI, likelihood_map_path
 
 
 def create_likelihood_cortex_juxta(cortex_mask):
-    
     """
     Generate a normalized likelihood map for the juxtacortical cortex.
 
@@ -115,7 +114,6 @@ def create_likelihood_cortex_juxta(cortex_mask):
     Returns
     -------
     juxta_cortex : Likelihood map around the juxtacortical cortex.
-    
     """
     cortex_mask[cortex_mask>0] = 1
     dilated_cortex_mask = binary_dilation(cortex_mask,ball(7))
@@ -152,7 +150,8 @@ def calculate_transforms(reg_dir, name) :
     ----------
     reg_dir : Path to the directory containing registration outputs.
     name : Subject identifier; files must start with "{name}_HC".
-
+    
+    
     Returns
     -------
     forward_transforms : Sorted paths to files matching
@@ -160,7 +159,7 @@ def calculate_transforms(reg_dir, name) :
     backward_transforms : Sorted paths to files matching
         "{name}_HC*0GenericAffine.mat" or "{name}_HC*1InverseWarp.nii[.gz]".
     """
-    
+    #Assume that all transformations are stored in reg_dir already
     forward_transforms = sorted([
     os.path.join(reg_dir, f)
     for f in os.listdir(reg_dir)
@@ -186,7 +185,7 @@ def calculate_transforms(reg_dir, name) :
 def calculate_centroid(flat_likelihood,ventricle_mask, cortex_mask, label_MNI,mask_synth_lesions,lesion_mask, bool_cortex, likelihood_map_path):
     
     """
-    Select a random voxel weighted by likelihood and check it against anatomical masks.
+    Select a random voxel weighted by likelihood and check it against anatomical masks to see if its a good candidate.
 
     Parameters
     ----------
@@ -230,18 +229,18 @@ def calculate_centroid(flat_likelihood,ventricle_mask, cortex_mask, label_MNI,ma
 def open_folder_lesion(folder_lesion,num,folder_lesion_list, bool_intracortical, bool_juxtacortical):
     
     """
-    Load a random lesion volume file from a numbered subfolder, filtered by lesion type,
-    retrying until a non-empty volume is found.
+    Load a random lesion volume file from a numbered subfolder, filtered by lesion type (for cortical lesions, either intracortical or juxtacortical),
+    retrying until a volume is found.
 
     Parameters
     ----------
     folder_lesion : Base directory containing numbered lesion subfolders.
-    num : Name of the subfolder to search in. (str)
+    num : Name of the subfolder to search in. 
     folder_lesion_list : List of filenames to choose from.
     bool_intracortical : bool
-        If True, only files whose name contains "intracort" (case-insensitive) are considered.
+        If True, only files whose name contains "intracort" are considered.
     bool_juxtacortical : bool
-        If True only files whose name contains "juxtacort" (case-insensitive) are considered.
+        If True only files whose name contains "juxtacort" are considered.
 
     Returns
     -------
@@ -256,7 +255,6 @@ def open_folder_lesion(folder_lesion,num,folder_lesion_list, bool_intracortical,
             intracort_files = [f for f in os.listdir(folder_lesion_intra) if 'intracort' in f.lower()]
             if intracort_files == []:
                 raise RuntimeError(f"No intracortical files found in {os.path.join(folder_lesion,str(num))}")
-            
             random_file = random.choice(intracort_files)
             random_file_path = os.path.join(os.path.join(folder_lesion,str(num)), random_file) 
             volume = (nib.load(random_file_path)).get_fdata()
@@ -352,12 +350,14 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
             attempt = 0
             bool_dict = False
             new_mask_lesion = np.zeros((label_MNI.shape), dtype = np.float32)
+            #loop to find a right position and a right shape 
             while(bool_dict == False and attempt < max_attempt):
                 max_iter = 10
                 iteration = 0
                 folder_assoc_num = []
                 bool_intra = False
                 bool_juxta = False
+                #loop to find a good candidate as centroid
                 while ((folder_assoc_num == [] or folder_assoc_num_conf == []) and iteration < max_iter):
                     
                     good_cand = False
@@ -465,6 +465,7 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
             else :
                 lesion_patch = volume
                 
+                #Paste the lesion on a new mask and ensure that the lesion is not placed on avoiding areas, following also the type of lesions (conf, ventricular, cortical...)
                 new_mask_lesion[start_x:stop_x,start_y:stop_y,start_z:stop_z] = lesion_patch
                 if(cortex_les== True):
                     new_mask_lesion[ventricle_mask>0] = 0
@@ -520,7 +521,7 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
                                 mask_synth_lesions_binary[new_mask_lesion==lab] = np.uint32(label)
                                 mask_lesion_conf[new_mask_lesion==lab] = np.uint32(label)
                                 new_mask_lesion[new_mask_lesion==lab] = np.uint32(label)
-                       
+        #Register all the masks (label mask with all the brain structure, masks to highlight confluent lesions and cortical lesions, and instantial mask)               
         lesion_mask_nib = nib.Nifti1Image(mask_synth_lesions,template_nib_T1.affine)
         label_MNI_nib =  nib.Nifti1Image(label_MNI,template_nib_T1.affine)
         label_MNI_semantic_nib = nib.Nifti1Image(label_MNI_lesion_sem,template_nib_T1.affine)
@@ -543,8 +544,8 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
         output_Newmask1 = os.path.join(folder_new_label, f'label_lesion_HC_inst_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {label_MNI_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask1}"
         subprocess.Popen(cmd, shell = True).wait()
-        
-        output_Newmask2 = os.path.join(folder_new_mask, f'mask_lesion_HC_sem_{name}_{nb_loop}.nii.gz')
+ 
+        output_Newmask2 = os.path.join(folder_new_mask, f'mask_lesion_HC_inst_{name}_{nb_loop}.nii.gz')
         cmd = f"antsApplyTransforms -d 3 -i {lesion_mask_p} -r {map} -n genericLabel -t [{backward_transforms[0]},1] -t {backward_transforms[1]} -o {output_Newmask2}"
         subprocess.Popen(cmd, shell = True).wait()
         
@@ -570,25 +571,31 @@ def label_map_synLes(folder_new_label, folder_new_mask, label_map, points,dict_p
 if __name__ == "__main__":
     print("Beginning")
     facteur_confluence = 0.05
-    points, dict_point_key = create_points(likelihood_map_path,path_dir,20)
+    
+    points, dict_point_key = create_points(likelihood_map_path,path_dir,20) #send back always the same list of centroids associated folder n°, containing lesions shape
     label_map = []
     for root, dirs, files in os.walk(folder_image):
         for f in files:
             if f.endswith(('.nii', '.nii.gz')) and 'mask-FSaseg_T2' in f:
                 label_map.append(os.path.join(root, f))
+    #Create 3 images different for each healthy patient
     for i in range(3):
         all_output_path, names = label_map_synLes(folder_new_label, folder_new_mask,label_map, points, dict_point_key, facteur_confluence, template_p_T1, 300, likelihood_map_path, 100,100, 20, 50, i, label=86)
     all_output_path =  sorted(all_output_path, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     names = sorted(names, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
+    #Create a semantic mask with the instantial for each 
     for i in range(len(all_output_path)):
         img_inst_nib = nib.load(all_output_path[i])
+        filename = os.path.basename(all_output_path[i])
+        base, ext = os.path.splitext(filename)
+        nb_loop = base.split('_')[5]
         img_inst = img_inst_nib.get_fdata()
         
         img_inst[(img_inst >= 86) & (img_inst < 251)] = 86
         img_inst[img_inst>255] = 86
         
         mask_sem = nib.Nifti1Image(img_inst, img_inst_nib.affine)
-        nib.save(mask_sem,os.path.join(folder_new_label,f'label_lesion_sem2_HC_{names[i]}.nii.gz'))
+        nib.save(mask_sem,os.path.join(folder_new_label,f'label_lesion_sem2_HC_{names[i]}_{nb_loop}.nii.gz'))
     print("End")
     
     

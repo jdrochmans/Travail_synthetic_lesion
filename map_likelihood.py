@@ -72,8 +72,10 @@ def likelihood(folder_mask, folder_segmentation, folder_image, template_p, folde
     map = np.zeros(template_T1.numpy().shape)
     count = 0
     number_data = len(mask_files)
+    #loop to add all the mask from our private dataset 
     for i in range(number_data) :
         
+        #mostly registrations of WM mask and lesions mask in the MNI space. If the transformations matrices are not already computed its not a problem here.
         path_in_name = os.path.basename(mask_files_sorted[i])
         name = path_in_name.split("_")[0]
         mask_reg = [os.path.join(folder_registered_mask, f) 
@@ -173,7 +175,8 @@ def likelihood(folder_mask, folder_segmentation, folder_image, template_p, folde
             WM_mask_p = output_WM_cereb
         else : 
             WM_cereb_mask_reg = ants.image_read(WM_cereb_reg[0])  
-            
+        
+        #Adding all the masks in the MNI space and normalize it to create the likelihood map 
         WM_mask_npy = WM_mask_reg.numpy()
         WM_cereb_npy = WM_cereb_mask_reg.numpy()
         map[WM_mask_npy>0] += 0.8
@@ -182,7 +185,7 @@ def likelihood(folder_mask, folder_segmentation, folder_image, template_p, folde
         mask_npy[mask_npy>0] = 1
         map += mask_npy
         count+=1
-    
+    #Loop to add all the MS-MIST masks
     for folder in folders_lesions:
         lesion_files = [os.path.join(folder, f) 
                     for f in os.listdir(folder) 

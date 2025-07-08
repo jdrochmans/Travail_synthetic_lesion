@@ -81,11 +81,12 @@ def shape_dir(likelihood_map_path,path_dir, folder_mask,reg_dir, template_p_T1, 
     
     points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
-    #utilise le mask recaled
+    
     mask_files = [os.path.join(folder_mask, f) for f in os.listdir(folder_mask) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(folder_mask, f)) and 'mask-instances' in f]
     mask_files_sorted = sorted(mask_files, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     count_mask = 0
     for i in range(len(mask_files_sorted)):
+        
         path_in_name = os.path.basename(mask_files_sorted[i])
         name = path_in_name.split("_")[0]
         forward_transforms = []
@@ -114,10 +115,11 @@ def shape_dir(likelihood_map_path,path_dir, folder_mask,reg_dir, template_p_T1, 
         mask = aligned_mask.numpy()
         if(np.sum(mask) == 0):
             print('Empty mask!')
+        
         labels = np.unique(mask)
         regions = regionprops(mask.astype(np.int32))
         count_lesion = 0
-        
+        #Loop on area, if contain more than one lesion => the area is added on the dictionary with the label mask of the two lesions
         for region in regions :
             count = 0
             minx, miny, minz = region.bbox[0], region.bbox[1], region.bbox[2]
@@ -127,23 +129,11 @@ def shape_dir(likelihood_map_path,path_dir, folder_mask,reg_dir, template_p_T1, 
             
             if(len(labels_in_region)>1) :
                 centroid_region = region.centroid
-            
-                indices = np.argwhere(mask_region>0)
-                indice2 = np.max(indices,axis = 0)
-            
-                x_max = indice2[0] +1
-                y_max = indice2[1] +1
-                z_max = indice2[2] +1
-                
-                indice3 = np.min(indices,axis = 0)
-                x_min = indice3[0]
-                y_min = indice3[1]
-                z_min = indice3[2] 
-
                 mask_lesion_i = mask_region.astype(np.uint32)
                 cnt = 1000
+                
                 for point in points :
-                    
+                    #adding the lesion to the closest region, found via comparison with the list of centroid 'points'.
                     if  np.linalg.norm(centroid_region - point) < cnt :
                         point_mei = point 
                         cnt = np.linalg.norm(centroid_region - point)
