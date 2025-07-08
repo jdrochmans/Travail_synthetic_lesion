@@ -14,9 +14,9 @@ reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
 path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir_confluent/")
-dossier_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-dossier_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
-dossier_registered_image = "/home/jdrochmans/data/juliette/register_image"
+folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
+folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
+folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
 
 
 def create_points(likelihood_map_path,path_dir, min_distance=20):
@@ -57,7 +57,7 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     return selected_points, dict_point_clés
 
 
-def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1, dossier_registered_mask) :
+def shape_dir(likelihood_map_path,path_dir, folder_mask,reg_dir, template_p_T1, folder_registered_mask) :
         
     """
     Extract and save in subdirectories confluents lesion from our private DS, registered in the MNI space.
@@ -67,11 +67,11 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
     likelihood_map_path : Path to the 3D likelihood file.
     path_dir : Base directory where subfolders for each index (from create_points)
         already exist.
-    dossier_mask : Directory containing lesion segmentation NIfTI files.
+    folder_mask : Directory containing lesion segmentation NIfTI files.
     reg_dir : Directory holding ANTs forward‐transform files (“<subject>_0GenericAffine.mat”,
         “<subject>_1Warp.nii[.gz]”) for each subject.
     template_p_T1 : Path to the T1‐weighted template NIfTI used as registration reference.
-    dossier_registered_mask : Directory where registered lesion masks are stored.
+    folder_registered_mask : Directory where registered lesion masks are stored.
 
     Returns
     -------
@@ -82,7 +82,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
     points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
     #utilise le mask recaled
-    mask_files = [os.path.join(dossier_mask, f) for f in os.listdir(dossier_mask) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(dossier_mask, f)) and 'mask-instances' in f]
+    mask_files = [os.path.join(folder_mask, f) for f in os.listdir(folder_mask) if f.endswith(('.nii', '.nii.gz')) and os.path.isfile(os.path.join(folder_mask, f)) and 'mask-instances' in f]
     mask_files_sorted = sorted(mask_files, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     count_mask = 0
     for i in range(len(mask_files_sorted)):
@@ -98,11 +98,11 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
             re.search(r"_1Warp\.nii(\.gz)?$", f)
         )]
         )
-        mask_reg = [os.path.join(dossier_registered_mask, f) 
-        for f in os.listdir(dossier_registered_mask) 
+        mask_reg = [os.path.join(folder_registered_mask, f) 
+        for f in os.listdir(folder_registered_mask) 
         if f.startswith(f"{name}")]
         if(mask_reg == []):
-            output =  os.path.join(dossier_registered_mask, f'{name}.nii.gz')
+            output =  os.path.join(folder_registered_mask, f'{name}.nii.gz')
             cmd = f"antsApplyTransforms -i {mask_files[i]} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
             subprocess.Popen(cmd, shell = True).wait()
             aligned_mask = ants.image_read(output)
@@ -161,5 +161,5 @@ def shape_dir(likelihood_map_path,path_dir, dossier_mask,reg_dir, template_p_T1,
 if __name__ == "__main__":
     print("Beginning")
     points, dict_point_clés = create_points(likelihood_map_path,path_dir,20)
-    points, dict_point_clés = shape_dir(likelihood_map_path,path_dir,dossier_mask,reg_dir,template_p_T1)
+    points, dict_point_clés = shape_dir(likelihood_map_path,path_dir,folder_mask,reg_dir,template_p_T1)
     print("End")

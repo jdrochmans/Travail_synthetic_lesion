@@ -12,7 +12,7 @@ from scipy.ndimage import zoom
 from avoiding_map import otsu
 
 
-dossier_seg = "/home/jdrochmans/data/juliette/seg"
+folder_seg = "/home/jdrochmans/data/juliette/seg"
 
 reg_dir = '/home/jdrochmans/data/juliette/transforms_reg/'
 likelihood_map_path = "/home/jdrochmans/data/juliette/likelihood_map_norm_WM30.nii"
@@ -24,14 +24,13 @@ template_T1 = "/home/jdrochmans/data/juliette/template.nii"
 path_dir = os.path.join("/home/jdrochmans/data/juliette/shape_dir_corticales/")
 
 template_p_T1 = "/home/jdrochmans/data/juliette/template.nii"
-dossier_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
-dossier_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
-dossier_registered_image = "/home/jdrochmans/data/juliette/register_image"
-dossier_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
+folder_mask = "/home/jdrochmans/data/juliette/Dataset001_BrainLesion/labelsTr"
+folder_registered_mask = "/home/jdrochmans/data/juliette/register_mask"
+folder_registered_image = "/home/jdrochmans/data/juliette/register_image"
+folder_cortex = '/home/jdrochmans/data/juliette/cortex_mask'
 
 
 likelihood_map = nib.load(likelihood_map_path).get_fdata()
-#template_T1 = ants.image_read(template_p_T1)
 template_nib_T1 = nib.load(template_p_T1)
 
 
@@ -72,7 +71,7 @@ def create_points(likelihood_map_path,path_dir, min_distance=20):
     return selected_points, dict_point_clés
 
 
-def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,dossier_registered_mask) :
+def shape_dir(likelihood_map_path,path_dir, folder_seg,reg_dir, template_p_T1,folder_registered_mask) :
     
     """
     Extract and save in subdirectories individual lesion masks from cortical segmentations, registered in the MNI space.
@@ -82,11 +81,11 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
     likelihood_map_path : Path to the 3D likelihood file.
     path_dir : Base directory where subfolders for each index (from create_points)
         already exist.
-    dossier_seg : Directory containing cortical segmentation NIfTI files named “<subject>_cort*.nii”.
+    folder_seg : Directory containing cortical segmentation NIfTI files named “<subject>_cort*.nii”.
     reg_dir : Directory holding ANTs forward‐transform files (“<subject>_0GenericAffine.mat”,
         “<subject>_1Warp.nii[.gz]”) for each subject.
     template_p_T1 : Path to the T1‐weighted template NIfTI used as registration reference.
-    dossier_registered_mask : Directory where registered cortical masks are stored.
+    folder_registered_mask : Directory where registered cortical masks are stored.
 
     Returns
     -------
@@ -97,7 +96,7 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
     likelihood_map = nib.load(likelihood_map_path).get_fdata()
     points, dict_point_clés = create_points(likelihood_map_path,path_dir)
     template_nib = nib.load(template_p_T1)
-    fichiers_cort = [f for f in os.listdir(dossier_seg) if "_cort" in f and f.endswith(".nii")]
+    fichiers_cort = [f for f in os.listdir(folder_seg) if "_cort" in f and f.endswith(".nii")]
     mask_files_sorted = sorted(fichiers_cort, key=lambda x: int(''.join(filter(str.isdigit, os.path.basename(x)))))
     count_mask = 0
     for i in range(len(mask_files_sorted)):
@@ -113,12 +112,12 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
             re.search(r"_1Warp\.nii(\.gz)?$", f)
         )]
         )
-        mask_reg = [os.path.join(dossier_registered_mask, f) 
-        for f in os.listdir(dossier_registered_mask) 
+        mask_reg = [os.path.join(folder_registered_mask, f) 
+        for f in os.listdir(folder_registered_mask) 
         if f.startswith(f"{name}_cortical")]
         if(mask_reg == []):
-            output =  os.path.join(dossier_registered_mask, f'{name}_cortical.nii.gz')
-            cmd = f"antsApplyTransforms -i {os.path.join(dossier_seg,mask_files_sorted[i])} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
+            output =  os.path.join(folder_registered_mask, f'{name}_cortical.nii.gz')
+            cmd = f"antsApplyTransforms -i {os.path.join(folder_seg,mask_files_sorted[i])} -r {template_p_T1} -n {'genericLabel'} -t {forward_transforms[1]} -t {forward_transforms[0]} -o {output}"
             subprocess.Popen(cmd, shell = True).wait()
             aligned_mask = ants.image_read(output)
             mask_p = output
@@ -130,8 +129,8 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
         if(np.sum(mask) == 0):
             print('Empty mask!')
         labels = np.unique(mask)
-        cortex_reg = [os.path.join(dossier_cortex, f) 
-        for f in os.listdir(dossier_cortex) 
+        cortex_reg = [os.path.join(folder_cortex, f) 
+        for f in os.listdir(folder_cortex) 
         if f.startswith(f"mask_cortex_registered_{name}")]
         count_lesion = 0
         for lab in labels:
@@ -184,5 +183,5 @@ def shape_dir(likelihood_map_path,path_dir, dossier_seg,reg_dir, template_p_T1,d
 if __name__ == "__main__":
     print("Beginning")
     points, dict_point_clés = create_points(likelihood_map,path_dir,20)
-    points, dict_point_clés = shape_dir(likelihood_map,path_dir,dossier_seg,reg_dir,template_p_T1)
+    points, dict_point_clés = shape_dir(likelihood_map,path_dir,folder_seg,reg_dir,template_p_T1)
     print("End")
